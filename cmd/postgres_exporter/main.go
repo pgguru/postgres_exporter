@@ -35,6 +35,7 @@ var (
 	webConfig              = webflag.AddFlags(kingpin.CommandLine)
 	metricPath             = kingpin.Flag("web.telemetry-path", "Path under which to expose metrics.").Default("/metrics").Envar("PG_EXPORTER_WEB_TELEMETRY_PATH").String()
 	disableDefaultMetrics  = kingpin.Flag("disable-default-metrics", "Do not include default metrics.").Default("false").Envar("PG_EXPORTER_DISABLE_DEFAULT_METRICS").Bool()
+	enableServerLabel      = kingpin.Flag("enable-server-label", "Include server label in metrics.").Default("false").Envar("PG_EXPORTER_ENABLE_SERVER_LABEL").Bool()
 	disableSettingsMetrics = kingpin.Flag("disable-settings-metrics", "Do not include pg_settings metrics.").Default("false").Envar("PG_EXPORTER_DISABLE_SETTINGS_METRICS").Bool()
 	autoDiscoverDatabases  = kingpin.Flag("auto-discover-databases", "Whether to discover the databases on a server dynamically.").Default("false").Envar("PG_EXPORTER_AUTO_DISCOVER_DATABASES").Bool()
 	queriesPath            = kingpin.Flag("extend.query-path", "Path to custom queries to run.").Default("").Envar("PG_EXPORTER_EXTEND_QUERY_PATH").String()
@@ -98,6 +99,7 @@ func main() {
 
 	opts := []ExporterOpt{
 		DisableDefaultMetrics(*disableDefaultMetrics),
+		EnableServerLabel(*enableServerLabel),
 		DisableSettingsMetrics(*disableSettingsMetrics),
 		AutoDiscoverDatabases(*autoDiscoverDatabases),
 		WithUserQueriesPath(*queriesPath),

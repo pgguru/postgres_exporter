@@ -50,7 +50,7 @@ func (e *Exporter) discoverDatabaseDSNs() []string {
 			continue
 		}
 
-		server, err := e.servers.GetServer(dsn)
+		server, err := e.servers.GetServer(dsn, e.enableServerLabel)
 		if err != nil {
 			level.Error(logger).Log("msg", "Error opening connection to database", "dsn", loggableDSN(dsn), "err", err)
 			continue
@@ -97,7 +97,7 @@ func (e *Exporter) discoverDatabaseDSNs() []string {
 }
 
 func (e *Exporter) scrapeDSN(ch chan<- prometheus.Metric, dsn string) error {
-	server, err := e.servers.GetServer(dsn)
+	server, err := e.servers.GetServer(dsn, e.enableServerLabel)
 
 	if err != nil {
 		return &ErrorConnectToServer{fmt.Sprintf("Error opening connection to database (%s): %s", loggableDSN(dsn), err.Error())}

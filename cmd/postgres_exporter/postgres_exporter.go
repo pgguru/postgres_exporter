@@ -439,7 +439,7 @@ type Exporter struct {
 	// only, since it just points to the global.
 	builtinMetricMaps map[string]intermediateMetricMap
 
-	disableDefaultMetrics, disableSettingsMetrics, autoDiscoverDatabases bool
+	disableDefaultMetrics, disableSettingsMetrics, autoDiscoverDatabases, enableServerLabel bool
 
 	excludeDatabases []string
 	includeDatabases []string
@@ -464,6 +464,13 @@ type ExporterOpt func(*Exporter)
 func DisableDefaultMetrics(b bool) ExporterOpt {
 	return func(e *Exporter) {
 		e.disableDefaultMetrics = b
+	}
+}
+
+// EnableServerLabel configures default metrics export.
+func EnableServerLabel(b bool) ExporterOpt {
+	return func(e *Exporter) {
+		e.enableServerLabel = b
 	}
 }
 

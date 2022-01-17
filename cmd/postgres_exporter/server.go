@@ -58,7 +58,7 @@ func ServerWithLabels(labels prometheus.Labels) ServerOpt {
 }
 
 // NewServer establishes a new connection using DSN.
-func NewServer(dsn string, opts ...ServerOpt) (*Server, error) {
+func NewServer(dsn string, serverLabel bool, opts ...ServerOpt) (*Server, error) {
 	fingerprint, err := parseFingerprint(dsn)
 	if err != nil {
 		return nil, err
@@ -80,6 +80,10 @@ func NewServer(dsn string, opts ...ServerOpt) (*Server, error) {
 			serverLabelName: fingerprint,
 		},
 		metricCache: make(map[string]cachedMetrics),
+	}
+
+	if !serverLabel {
+		delete(s.labels, serverLabelName)
 	}
 
 	for _, opt := range opts {
@@ -147,7 +151,7 @@ func NewServers(opts ...ServerOpt) *Servers {
 }
 
 // GetServer returns established connection from a collection.
-func (s *Servers) GetServer(dsn string) (*Server, error) {
+func (s *Servers) GetServer(dsn string, serverLabel bool) (*Server, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 	var err error
@@ -161,7 +165,7 @@ func (s *Servers) GetServer(dsn string) (*Server, error) {
 		}
 		server, ok = s.servers[dsn]
 		if !ok {
-			server, err = NewServer(dsn, s.opts...)
+			server, err = NewServer(dsn, serverLabel, s.opts...)
 			if err != nil {
 				time.Sleep(time.Duration(errCount) * time.Second)
 				continue
