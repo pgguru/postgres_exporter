@@ -15,7 +15,6 @@ package collector
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"sync"
@@ -59,7 +58,7 @@ var (
 )
 
 type Collector interface {
-	Update(ctx context.Context, db *sql.DB, ch chan<- prometheus.Metric) error
+	Update(ctx context.Context, server *server, ch chan<- prometheus.Metric) error
 }
 
 func registerCollector(name string, isDefaultEnabled bool, createFunc func(logger log.Logger) (Collector, error)) {
@@ -87,13 +86,13 @@ type PostgresCollector struct {
 	Collectors map[string]Collector
 	logger     log.Logger
 
-	db *sql.DB
+	servers map[string]*server
 }
 
 type Option func(*PostgresCollector) error
 
 // NewPostgresCollector creates a new PostgresCollector.
-func NewPostgresCollector(logger log.Logger, dsn string, filters []string, options ...Option) (*PostgresCollector, error) {
+func NewPostgresCollector(logger log.Logger, dsns []string, filters []string, options ...Option) (*PostgresCollector, error) {
 	p := &PostgresCollector{
 		logger: logger,
 	}
@@ -137,18 +136,17 @@ func NewPostgresCollector(logger log.Logger, dsn string, filters []string, optio
 
 	p.Collectors = collectors
 
-	if dsn == "" {
-		return nil, errors.New("empty dsn")
+	servers := make(map[string]*server)
+	for _, dsn := range dsns {
+		s, err := makeServer(dsn)
+		if err != nil {
+			return nil, err
+		}
+
+		servers[dsn] = s
 	}
 
-	db, err := sql.Open("postgres", dsn)
-	if err != nil {
-		return nil, err
-	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-
-	p.db = db
+	p.servers = servers
 
 	return p, nil
 }
@@ -163,19 +161,31 @@ func (p PostgresCollector) Describe(ch chan<- *prometheus.Desc) {
 func (p PostgresCollector) Collect(ch chan<- prometheus.Metric) {
 	ctx := context.TODO()
 	wg := sync.WaitGroup{}
+	wg.Add(len(p.servers))
+	for _, s := range p.servers {
+		go func(s *server) {
+			p.subCollect(ctx, s, ch)
+			wg.Done()
+		}(s)
+	}
+	wg.Wait()
+}
+
+func (p PostgresCollector) subCollect(ctx context.Context, server *server, ch chan<- prometheus.Metric) {
+	wg := sync.WaitGroup{}
 	wg.Add(len(p.Collectors))
 	for name, c := range p.Collectors {
 		go func(name string, c Collector) {
-			execute(ctx, name, c, p.db, ch, p.logger)
+			execute(ctx, name, c, server, ch, p.logger)
 			wg.Done()
 		}(name, c)
 	}
 	wg.Wait()
 }
 
-func execute(ctx context.Context, name string, c Collector, db *sql.DB, ch chan<- prometheus.Metric, logger log.Logger) {
+func execute(ctx context.Context, name string, c Collector, s *server, ch chan<- prometheus.Metric, logger log.Logger) {
 	begin := time.Now()
-	err := c.Update(ctx, db, ch)
+	err := c.Update(ctx, s, ch)
 	duration := time.Since(begin)
 	var success float64
 
